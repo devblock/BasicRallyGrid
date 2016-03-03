@@ -1,103 +1,110 @@
 Ext.define('CustomApp', {
     extend: 'Rally.app.App',
     componentCls: 'app',
+	
+	items: [
+		{
+			xtype: 'container',
+			itemId: 'pulldown-container',
+			layout: {
+				type: 'hbox',
+				align: 'stretch'
+			}
+		}
+	],
+	
 	myGrid: undefined,
 	defectStore: undefined,
     
 	launch: function() {
 		console.log('Our Second App woot');
 		
-		this.pulldownContainer = Ext.create('Ext.container.Container', {
-			layout: {
-				type: 'hbox',
-				align: 'stretch'
-			}
-		});
-		
-		this.add(this.pulldownContainer);
-		
 		this._loadIterations();
 	},
 	
 	_loadIterations: function() {
-		this.iterComboBox = Ext.create('Rally.ui.combobox.IterationComboBox', {
+		var me = this;
+		
+		var iterComboBox = Ext.create('Rally.ui.combobox.IterationComboBox', {
+			itemId: 'iteration-combobox',
 			fieldLabel: 'Iteration',
 			labelAlign: 'right',
 			width: 300,
 			listeners: {
-				ready: function(combobox) {
-					//var selectedIterRef = combobox.getRecord().get('_ref');
-					//this._loadData();
-					this._loadSeverities();
-				},
-				select: function(combobox, records) {
-					this._loadData();
-				},
-				scope: this
+				ready: me._loadSeverities,
+				select: me._loadData,
+				scope: me
 			}
 		});
 		
-		this.pulldownContainer.add(this.iterComboBox);
+		//this.pulldownContainer.add(this.iterComboBox);
+		this.down('#pulldown-container').add(iterComboBox);
 	},
 	
 	_loadSeverities: function() {
-		this.severityPicker = Ext.create('Rally.ui.combobox.FieldValueComboBox', {
+		var me = this;
+		
+		var severityPicker = Ext.create('Rally.ui.combobox.FieldValueComboBox', {
+			itemId: 'severity-combobox',
 			model: 'Defect',
 			field: 'Severity',
 			fieldLabel: 'Severity',
 			labelAlign: 'right',
 			listeners: {
-				ready: function(combobox) {
-					this._loadData();
-				},
-				select: function(combobox, records) {
-					this._loadData();
-				},
-				scope: this
+				ready: me._loadData,
+				select: me._loadData,
+				scope: me
 			}
 		});
 		
-		this.pulldownContainer.add(this.severityPicker);
+		this.down('#pulldown-container').add(severityPicker);
+	},
+	
+	_getFilters: function(iterationValue, severityValue) {
+		var iterationFilter = Ext.create('Rally.data.wsapi.Filter', {
+			property: 'Iteration',
+			operation: '=',
+			value: iterationValue
+		});
+		
+		var severityFilter = Ext.create('Rally.data.wsapi.Filter', {
+			property: 'Severity',
+			operation: '=',
+			value: severityValue
+		});
+		
+		return iterationFilter.and(severityFilter);
 	},
 	
 	// Get data from Rally
 	_loadData: function() {
-		var selectedIterRef = this.iterComboBox.getRecord().get('_ref'); // selected iteration
-		var selectedSeverityValue = this.severityPicker.getRecord().get('value'); // selected severity
+		var me = this;
+		
+		var selectedIterRef = me.down('#iteration-combobox').getRecord().get('_ref'); // selected iteration
+		var selectedSeverityValue = me.down('#severity-combobox').getRecord().get('value'); // selected severity
 
-		var myFilters = [
-			{
-				property: 'Iteration',
-				operation: '=',
-				value: selectedIterRef
-			},
-			{
-				property: 'Severity',
-				operation: '=',
-				value: selectedSeverityValue
-			}
-		];
+		var myFilters = me._getFilters(selectedIterRef, selectedSeverityValue);
 		
 		// if store exists, just load new data
-		if (this.defectStore) {
+		if (me.defectStore) {
 			console.log('store exists');
-			this.defectStore.setFilter(myFilters);
-			this.defectStore.load();
+			me.defectStore.setFilter(myFilters);
+			me.defectStore.load();
 		} else {
 			console.log('creating store');
 			//create store
-			this.defectStore = Ext.create('Rally.data.wsapi.Store', {
+			me.defectStore = Ext.create('Rally.data.wsapi.Store', {
 				model: 'Defect',
 				autoLoad: true,
 				filters: myFilters,
 				listeners: {
 					load: function(store, data, success) {
 						//console.log('got data!', store, data, success);
-						if (!this.myGrid) {
-							this._createGrid(this.defectStore);
+						if (!me.myGrid) {
+							me._createGrid(me.defectStore);
 						}
 					},
-					scope: this
+					scope: me
 				},
 				fetch: ['Name', 'formattedID', 'Severity', 'Iteration']
 			});
@@ -106,7 +113,9 @@ Ext.define('CustomApp', {
 	
 	// Create Grid
 	_createGrid: function(myStoryStore) {
-		this.myGrid = Ext.create('Rally.ui.grid.Grid', {
+		var me = this;
+		
+		me.myGrid = Ext.create('Rally.ui.grid.Grid', {
 			store: myStoryStore,
 			columnCfgs: [
 				'FormattedID',
@@ -116,6 +125,6 @@ Ext.define('CustomApp', {
 			]
 		});
 		
-		this.add(this.myGrid);
+		me.add(me.myGrid);
 	}
 });
